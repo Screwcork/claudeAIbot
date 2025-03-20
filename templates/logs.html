@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Bot - Logs & History</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <nav id="sidebar" class="col-md-3 col-lg-2 d-md-block bg-dark sidebar collapse">
+                <div class="position-sticky pt-3">
+                    <div class="sidebar-header mb-4">
+                        <h3 class="text-light">Trading Bot</h3>
+                        <div id="bot-status-indicator" class="status-indicator {{ 'status-' + bot_status.status }}">
+                            {{ bot_status.status }}
+                        </div>
+                    </div>
+                    
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('dashboard') }}">
+                                <i class="bi bi-speedometer2 me-2"></i>
+                                Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('positions') }}">
+                                <i class="bi bi-graph-up me-2"></i>
+                                Positions
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('performance') }}">
+                                <i class="bi bi-bar-chart me-2"></i>
+                                Performance
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('markets') }}">
+                                <i class="bi bi-globe me-2"></i>
+                                Market Analysis
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('config') }}">
+                                <i class="bi bi-gear me-2"></i>
+                                Configuration
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link active" href="{{ url_for('logs') }}">
+                                <i class="bi bi-journal-text me-2"></i>
+                                Logs
+                            </a>
+                        </li>
+                    </ul>
+                    
+                    <hr class="text-light">
+                    
+                    <div class="bot-controls">
+                        <h6 class="text-light px-3">Bot Controls</h6>
+                        <div class="d-flex justify-content-around">
+                            <button id="start-bot" class="btn btn-success btn-sm" onclick="sendCommand('start')">
+                                <i class="bi bi-play-fill"></i> Start
+                            </button>
+                            <button id="pause-bot" class="btn btn-warning btn-sm" onclick="sendCommand('pause')">
+                                <i class="bi bi-pause-fill"></i> Pause
+                            </button>
+                            <button id="stop-bot" class="btn btn-danger btn-sm" onclick="sendCommand('stop')">
+                                <i class="bi bi-stop-fill"></i> Stop
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+            
+            <!-- Main content -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2">Logs & History</h1>
+                    <div class="btn-toolbar mb-2 mb-md-0">
+                        <div class="btn-group me-2">
+                            <span class="connect-status">
+                                <span class="badge rounded-pill bg-{{ 'success' if bot_status.status != 'disconnected' else 'danger' }}">
+                                    <i class="bi bi-{{ 'check-circle' if bot_status.status != 'disconnected' else 'x-circle' }}"></i>
+                                    {{ 'Connected' if bot_status.status != 'disconnected' else 'Disconnected' }}
+                                </span>
+                            </span>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="refreshData()">
+                            <i class="bi bi-arrow-repeat"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Tab Navigation -->
+                <ul class="nav nav-tabs mb-4" id="logsTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="trades-tab" data-bs-toggle="tab" data-bs-target="#trades" type="button" role="tab">
+                            Trade History
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="daily-tab" data-bs-toggle="tab" data-bs-target="#daily" type="button" role="tab">
+                            Daily Performance
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="system-tab" data-bs-toggle="tab" data-bs-target="#system" type="button" role="tab">
+                            System Logs
+                        </button>
+                    </li>
+                </ul>
+                
+                <!-- Tab Content -->
+                <div class="tab-content" id="logsTabContent">
+                    <!-- Trade History Tab -->
+                    <div class="tab-pane fade show active" id="trades" role="tabpanel" aria-labelledby="trades-tab">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="card-title">Trade History</h5>
+                                <div>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">Limit</span>
+                                        <select id="trade-limit" class="form-select form-select-sm" style="width: 80px;" onchange="loadTrades()">
+                                            <option value="10">10</option>
+                                            <option value="20">20</option>
+                                            <option value="50">50</option>
+                                            <option value="100">100</option>
+                                        </select>
+                                        <button class="btn btn-outline-secondary" type="button" onclick="exportTrades()">
+                                            <i class="bi bi-download"></i> Export
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Symbol</th>
+                                                <th>Side</th>
+                                                <th>Entry Price</th>
+                                                <th>Exit Price</th>
+                                                <th>Size</th>
+                                                <th>PnL</th>
+                                                <th>PnL %</th>
+                                                <th>Entry Time</th>
+                                                <th>Exit Time</th>
+                                                <th>Duration</th>
+                                                <th>Exit Reason</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="trades-table">
+                                            {% for trade in trades %}
+                                            <tr>
+                                                <td>{{ trade.symbol }}</td>
+                                                <td>
+                                                    <span class="badge bg-{{ 'success' if trade.side == 'buy' else 'danger' }}">
+                                                        {{ trade.side|upper }}
+                                                    </span>
+                                                </td>
+                                                <td>${{ trade.entry_price|round(2) }}</td>
+                                                <td>${{ trade.exit_price|round(2) }}</td>
+                                                <td>{{ trade.amount }}</td>
+                                                <td class="{{ 'text-success' if trade.pnl > 0 else 'text-danger' }}">
+                                                    ${{ trade.pnl|round(2) }}
+                                                </td>
+                                                <td class="{{ 'text-success' if trade.pnl_percentage > 0 else 'text-danger' }}">
+                                                    {{ trade.pnl_percentage|round(2) }}%
+                                                </td>
+                                                <td>{{ trade.entry_time }}</td>
+                                                <td>{{ trade.exit_time }}</td>
+                                                <td>{{ trade.duration }}</td>
+                                                <td>
+                                                    <span class="badge bg-{{ 
+                                                        'success' if trade.exit_reason == 'take_profit' else 
+                                                        'danger' if trade.exit_reason == 'stop_loss' else 
+                                                        'warning' if trade.exit_reason == 'signal_reversal' else 
+                                                        'info' if trade.exit_reason == 'manual' else 
+                                                        'secondary' 
+                                                    }}">
+                                                        {{ trade.exit_reason }}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                            {% if not trades %}
+                                            <tr>
+                                                <td colspan="11" class="text-center">No trade history available</td>
+                                            </tr>
+                                            {% endif %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Daily Performance Tab -->
+                    <div class="tab-pane fade" id="daily" role="tabpanel" aria-labelledby="daily-tab">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title">Daily Performance</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Trades</th>
+                                                <th>Win/Loss</th>
+                                                <th>Win Rate</th>
+                                                <th>Profit</th>
+                                                <th>Loss</th>
+                                                <th>Net PnL</th>
+                                                <th>Start Balance</th>
+                                                <th>End Balance</th>
+                                                <th>Daily Return</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="daily-stats-table">
+                                            <!-- Daily stats will be loaded dynamically -->
+                                            <tr>
+                                                <td colspan="10" class="text-center">
+                                                    <div class="spinner-border spinner-border-sm text-secondary" role="status">
+                                                        <span class="visually-hidden">Loading...</span>
+                                                    </div>
+                                                    Loading daily stats...
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- System Logs Tab -->
+                    <div class="tab-pane fade" id="system" role="tabpanel" aria-labelledby="system-tab">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="card-title">System Logs</h5>
+                                <div>
+                                    <select id="log-level" class="form-select form-select-sm d-inline-block w-auto me-2" onchange="filterLogs()">
+                                        <option value="all">All Levels</option>
+                                        <option value="INFO">INFO</option>
+                                        <option value="WARNING">WARNING</option>
+                                        <option value="ERROR">ERROR</option>
+                                        <option value="DEBUG">DEBUG</option>
+                                    </select>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="refreshLogs()">
+                                        <i class="bi bi-arrow-repeat"></i> Refresh
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="log-container" style="height: 600px; overflow-y: auto; font-family: monospace; font-size: 0.875rem; background-color: #1a1a1a; padding: 1rem; border-radius: 0.25rem;">
+                                    <div id="log-content">
+                                        <!-- Logs will be loaded dynamically -->
+                                        <div class="text-center text-secondary">
+                                            <div class="spinner-border spinner-border-sm" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                            Loading logs...
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.5.1/dist/socket.io.min.js"></script>
+    <script>
+        // Connect to Socket.IO server
+        const socket = io();
+        
+        // Initialize after page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load initial data
+            loadTrades();
+            loadDailyStats();
+            loadSystemLogs();
+        });
+        
+        // Listen for status updates
+        socket.on('status_update', function(data) {
+            const statusIndicator = document.getElementById('bot-status-indicator');
+            statusIndicator.className = 'status-indicator status-' + data.status;
+            statusIndicator.textContent = data.status;
+            
+            // Update status badge
+            const statusBadge = document.querySelector('.connect-status .badge');
+            if (data.status !== 'disconnected') {
+                statusBadge.className = 'badge rounded-pill bg-success';
+                statusBadge.innerHTML = '<i class="bi bi-check-circle"></i> Connected';
+            } else {
+                statusBadge.className = 'badge rounded-pill bg-danger';
+                statusBadge.innerHTML = '<i class="bi bi-x-circle"></i> Disconnected';
+            }
+        });
+        
+        // Listen for trades updates
+        socket.on('trades_update', function(trades) {
+            updateTradesTable(trades);
+        });
+        
+        // Load trades from API
+        function loadTrades() {
+            const limit = document.getElementById('trade-limit').value;
+            
+            fetch(`/api/trades?limit=${limit}`)
+                .then(response => response.json())
+                .then(trades => {
+                    updateTradesTable(trades);
+                })
+                .catch(error => {
+                    console.error('Error loading trades:', error);
+                    document.getElementById('trades-table').innerHTML = 
+                        '<tr><td colspan="11" class="text-center text-danger">Error loading trade history</td></tr>';
+                });
+        }
+        
+        // Update trades table with data
+        function updateTradesTable(trades) {
+            const tbody = document.getElementById('trades-table');
+            
+            if (!trades || trades.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="11" class="text-center">No trade history available</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = '';
+            trades.forEach(trade => {
+                const row = document.createElement('tr');
+                
+                // Determine badge class for exit reason
+                let exitReasonClass = 'secondary';
+                if (trade.exit_reason === 'take_profit') exitReasonClass = 'success';
+                else if (trade.exit_reason === 'stop_loss') exitReasonClass = 'danger';
+                else if (trade.exit_reason === 'signal_reversal') exitReasonClass = 'warning';
+                else if (trade.exit_reason === 'manual') exitReasonClass = 'info';
+                
+                row.innerHTML = `
+                    <td>${trade.symbol}</td>
+                    <td>
+                        <span class="badge bg-${trade.side === 'buy' ? 'success' : 'danger'}">
+                            ${trade.side.toUpperCase()}
+                        </span>
+                    </td>
+                    <td>$${parseFloat(trade.entry_price).toFixed(2)}</td>
+                    <td>$${parseFloat(trade.exit_price).toFixed(2)}</td>
+                    <td>${trade.amount}</td>
+                    <td class="${parseFloat(trade.pnl) > 0 ? 'text-success' : 'text-danger'}">
+                        $${parseFloat(trade.pnl).toFixed(2)}
+                    </td>
+                    <td class="${parseFloat(trade.pnl_percentage) > 0 ? 'text-success' : 'text-danger'}">
+                        ${parseFloat(trade.pnl_percentage).toFixed(2)}%
+                    </td>
+                    <td>${trade.entry_time}</td>
+                    <td>${trade.exit_time}</td>
+                    <td>${trade.duration}</td>
+                    <td>
+                        <span class="badge bg-${exitReasonClass}">
+                            ${trade.exit_reason}
+                        </span>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+        
+        // Load daily stats from API
+        function loadDailyStats() {
+            fetch('/api/daily_stats')
+                .then(response => response.json())
+                .then(stats => {
+                    updateDailyStatsTable(stats);
+                })
+                .catch(error => {
+                    console.error('Error loading daily stats:', error);
+                    document.getElementById('daily-stats-table').innerHTML = 
+                        '<tr><td colspan="10" class="text-center text-danger">Error loading daily statistics</td></tr>';
+                });
+        }
+        
+        // Update daily stats table with data
+        function updateDailyStatsTable(stats) {
+            const tbody = document.getElementById('daily-stats-table');
+            
+            if (!stats || stats.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="10" class="text-center">No daily statistics available</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = '';
+            stats.forEach(day => {
+                const row = document.createElement('tr');
+                
+                // Calculate win rate and daily return
+                const winRate = day.trades > 0 ? (day.wins / day.trades * 100).toFixed(1) : '0.0';
+                const dailyReturn = day.starting_balance > 0 ? 
+                    ((day.ending_balance - day.starting_balance) / day.starting_balance * 100).toFixed(2) : '0.00';
+                
+                row.innerHTML = `
+                    <td>${day.date}</td>
+                    <td>${day.trades}</td>
+                    <td>${day.wins}/${day.losses}</td>
+                    <td>${winRate}%</td>
+                    <td class="text-success">$${parseFloat(day.profit).toFixed(2)}</td>
+                    <td class="text-danger">$${parseFloat(day.loss).toFixed(2)}</td>
+                    <td class="${parseFloat(day.net_pnl) >= 0 ? 'text-success' : 'text-danger'}">
+                        $${parseFloat(day.net_pnl).toFixed(2)}
+                    </td>
+                    <td>$${parseFloat(day.starting_balance).toFixed(2)}</td>
+                    <td>$${parseFloat(day.ending_balance).toFixed(2)}</td>
+                    <td class="${parseFloat(dailyReturn) >= 0 ? 'text-success' : 'text-danger'}">
+                        ${dailyReturn}%
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+        
+        // Load system logs from API
+        function loadSystemLogs() {
+            fetch('/api/system_logs')
+                .then(response => response.json())
+                .then(logs => {
+                    updateSystemLogs(logs);
+                })
+                .catch(error => {
+                    console.error('Error loading system logs:', error);
+                    document.getElementById('log-content').innerHTML = 
+                        '<div class="text-danger">Error loading system logs</div>';
+                });
+        }
+        
+        // Filter logs by level
+        function filterLogs() {
+            const level = document.getElementById('log-level').value;
+            
+            fetch(`/api/system_logs?level=${level}`)
+                .then(response => response.json())
+                .then(logs => {
+                    updateSystemLogs(logs);
+                })
+                .catch(error => {
+                    console.error('Error filtering logs:', error);
+                });
+        }
+        
+        // Refresh logs
+        function refreshLogs() {
+            const logContent = document.getElementById('log-content');
+            logContent.innerHTML = `
+                <div class="text-center text-secondary">
+                    <div class="spinner-border spinner-border-sm" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    Refreshing logs...
+                </div>
+            `;
+            
+            filterLogs();
+        }
+        
+        // Update system logs display
+        function updateSystemLogs(logs) {
+            const logContent = document.getElementById('log-content');
+            
+            if (!logs || logs.length === 0) {
+                logContent.innerHTML = '<div class="text-center text-secondary">No logs available</div>';
+                return;
+            }
+            
+            logContent.innerHTML = '';
+            logs.forEach(log => {
+                const logEntry = document.createElement('div');
+                
+                // Determine log level color
+                let levelClass = '';
+                if (log.level === 'ERROR') levelClass = 'text-danger';
+                else if (log.level === 'WARNING') levelClass = 'text-warning';
+                else if (log.level === 'INFO') levelClass = 'text-info';
+                else if (log.level === 'DEBUG') levelClass = 'text-secondary';
+                
+                logEntry.className = levelClass;
+                logEntry.textContent = `[${log.timestamp}] [${log.level}] ${log.message}`;
+                logContent.appendChild(logEntry);
+            });
+            
+            // Scroll to bottom to show most recent logs
+            const logContainer = document.querySelector('.log-container');
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        // Export trades to CSV
+        function exportTrades() {
+            const limit = document.getElementById('trade-limit').value;
+            
+            fetch(`/api/trades?limit=${limit}`)
+                .then(response => response.json())
+                .then(trades => {
+                    if (!trades || trades.length === 0) {
+                        alert('No trades to export');
+                        return;
+                    }
+                    
+                    // Create CSV content
+                    let csv = 'Symbol,Side,Entry Price,Exit Price,Size,PnL,PnL %,Entry Time,Exit Time,Duration,Exit Reason\n';
+                    
+                    trades.forEach(trade => {
+                        csv += `${trade.symbol},${trade.side},${trade.entry_price},${trade.exit_price},${trade.amount},` +
+                               `${trade.pnl},${trade.pnl_percentage},${trade.entry_time},${trade.exit_time},` +
+                               `${trade.duration},${trade.exit_reason}\n`;
+                    });
+                    
+                    // Create download link
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.setAttribute('hidden', '');
+                    a.setAttribute('href', url);
+                    a.setAttribute('download', `trade_history_${new Date().toISOString().split('T')[0]}.csv`);
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                })
+                .catch(error => {
+                    console.error('Error exporting trades:', error);
+                    alert('Error exporting trades');
+                });
+        }
+        
+        // Send command function
+        function sendCommand(command, params = {}) {
+            socket.emit('command', {
+                command: command,
+                params: params
+            });
+        }
+        
+        // Refresh all data
+        function refreshData() {
+            loadTrades();
+            loadDailyStats();
+            loadSystemLogs();
+        }
+    </script>
+</body>
+</html>

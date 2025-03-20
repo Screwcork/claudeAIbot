@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Bot - Market Analysis</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <nav id="sidebar" class="col-md-3 col-lg-2 d-md-block bg-dark sidebar collapse">
+                <div class="position-sticky pt-3">
+                    <div class="sidebar-header mb-4">
+                        <h3 class="text-light">Trading Bot</h3>
+                        <div id="bot-status-indicator" class="status-indicator {{ 'status-' + bot_status.status }}">
+                            {{ bot_status.status }}
+                        </div>
+                    </div>
+                    
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('dashboard') }}">
+                                <i class="bi bi-speedometer2 me-2"></i>
+                                Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('positions') }}">
+                                <i class="bi bi-graph-up me-2"></i>
+                                Positions
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('performance') }}">
+                                <i class="bi bi-bar-chart me-2"></i>
+                                Performance
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link active" href="{{ url_for('markets') }}">
+                                <i class="bi bi-globe me-2"></i>
+                                Market Analysis
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('config') }}">
+                                <i class="bi bi-gear me-2"></i>
+                                Configuration
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('logs') }}">
+                                <i class="bi bi-journal-text me-2"></i>
+                                Logs
+                            </a>
+                        </li>
+                    </ul>
+                    
+                    <hr class="text-light">
+                    
+                    <div class="bot-controls">
+                        <h6 class="text-light px-3">Bot Controls</h6>
+                        <div class="d-flex justify-content-around">
+                            <button id="start-bot" class="btn btn-success btn-sm" onclick="sendCommand('start')">
+                                <i class="bi bi-play-fill"></i> Start
+                            </button>
+                            <button id="pause-bot" class="btn btn-warning btn-sm" onclick="sendCommand('pause')">
+                                <i class="bi bi-pause-fill"></i> Pause
+                            </button>
+                            <button id="stop-bot" class="btn btn-danger btn-sm" onclick="sendCommand('stop')">
+                                <i class="bi bi-stop-fill"></i> Stop
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+            
+            <!-- Main content -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2">Market Analysis</h1>
+                    <div class="btn-toolbar mb-2 mb-md-0">
+                        <div class="btn-group me-2">
+                            <span class="connect-status">
+                                <span class="badge rounded-pill bg-{{ 'success' if bot_status.status != 'disconnected' else 'danger' }}">
+                                    <i class="bi bi-{{ 'check-circle' if bot_status.status != 'disconnected' else 'x-circle' }}"></i>
+                                    {{ 'Connected' if bot_status.status != 'disconnected' else 'Disconnected' }}
+                                </span>
+                            </span>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="refreshData()">
+                            <i class="bi bi-arrow-repeat"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Market Regimes -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title">Current Market Regimes</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Symbol</th>
+                                                <th>Regime</th>
+                                                <th>Trend Score</th>
+                                                <th>Volatility</th>
+                                                <th>Since</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="regimes-table">
+                                            {% for symbol, regime in regimes.items() %}
+                                            <tr>
+                                                <td>{{ symbol }}</td>
+                                                <td>
+                                                    <span class="badge bg-{{ 'success' if regime.regime == 'trending_up' else 'danger' if regime.regime == 'trending_down' else 'warning' if regime.regime == 'volatile' else 'info' if regime.regime == 'ranging' else 'secondary' }}">
+                                                        {{ regime.regime }}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <div class="progress" style="height: 8px;">
+                                                        <div class="progress-bar {{ 'bg-success' if regime.trend_score > 0 else 'bg-danger' }}" 
+                                                             role="progressbar" 
+                                                             style="width: {{ (regime.trend_score|abs / 100 * 100)|round }}%" 
+                                                             aria-valuenow="{{ regime.trend_score|round(1) }}" 
+                                                             aria-valuemin="0" 
+                                                             aria-valuemax="100">
+                                                        </div>
+                                                    </div>
+                                                    <small class="{{ 'text-success' if regime.trend_score > 0 else 'text-danger' }}">
+                                                        {{ regime.trend_score|round(1) }}
+                                                    </small>
+                                                </td>
+                                                <td>
+                                                    <div class="progress" style="height: 8px;">
+                                                        <div class="progress-bar bg-warning" 
+                                                             role="progressbar" 
+                                                             style="width: {{ (regime.volatility / 100 * 100)|round }}%" 
+                                                             aria-valuenow="{{ regime.volatility|round(1) }}" 
+                                                             aria-valuemin="0" 
+                                                             aria-valuemax="100">
+                                                        </div>
+                                                    </div>
+                                                    <small>{{ regime.volatility|round(1) }}%</small>
+                                                </td>
+                                                <td>{{ regime.since }}</td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-outline-primary" onclick="showChart('{{ symbol }}')">
+                                                        <i class="bi bi-graph-up"></i> Chart
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                            {% if not regimes %}
+                                            <tr>
+                                                <td colspan="6" class="text-center">No market regime data available</td>
+                                            </tr>
+                                            {% endif %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Trading Signals -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title">Current Trading Signals</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Symbol</th>
+                                                <th>Signal</th>
+                                                <th>Confidence</th>
+                                                <th>Market Regime</th>
+                                                <th>Sentiment</th>
+                                                <th>Patterns</th>
+                                                <th>Time</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="signals-table">
+                                            {% for symbol, signal in signals.items() %}
+                                            <tr>
+                                                <td>{{ symbol }}</td>
+                                                <td>
+                                                    <div class="signal-meter">
+                                                        <div class="signal-bar {{ 'positive' if signal.signal > 0 else 'negative' }}" style="width: {{ (signal.signal|abs * 100)|round }}%"></div>
+                                                        <span class="{{ 'text-success' if signal.signal > 0 else 'text-danger' }}">
+                                                            {{ (signal.signal|abs * 100)|round }}% {{ 'BUY' if signal.signal > 0 else 'SELL' }}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>{{ (signal.confidence * 100)|round }}%</td>
+                                                <td>
+                                                    <span class="badge bg-{{ 'success' if signal.market_regime == 'trending_up' else 'danger' if signal.market_regime == 'trending_down' else 'warning' if signal.market_regime == 'volatile' else 'info' if signal.market_regime == 'ranging' else 'secondary' }}">
+                                                        {{ signal.market_regime }}
+                                                    </span>
+                                                </td>
+                                                <td class="{{ 'text-success' if signal.sentiment > 0 else 'text-danger' if signal.sentiment < 0 else '' }}">
+                                                    {{ (signal.sentiment|abs * 100)|round }}% {{ 'Positive' if signal.sentiment > 0 else 'Negative' if signal.sentiment < 0 else 'Neutral' }}
+                                                </td>
+                                                <td>
+                                                    {% for pattern in signal.patterns %}
+                                                    <span class="badge bg-secondary">{{ pattern }}</span>
+                                                    {% endfor %}
+                                                </td>
+                                                <td>{{ signal.timestamp }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                            {% if not signals %}
+                                            <tr>
+                                                <td colspan="7" class="text-center">No trading signals available</td>
+                                            </tr>
+                                            {% endif %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Market Chart -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title">Market Chart</h5>
+                                <div class="mt-2">
+                                    <select id="chart-symbol" class="form-select form-select-sm d-inline-block w-auto me-2">
+                                        <option value="">Select Symbol</option>
+                                        {% for symbol in signals.keys() %}
+                                        <option value="{{ symbol }}">{{ symbol }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-secondary timeframe-btn" data-tf="15m">15m</button>
+                                        <button class="btn btn-outline-secondary timeframe-btn" data-tf="1h">1h</button>
+                                        <button class="btn btn-outline-secondary timeframe-btn" data-tf="4h">4h</button>
+                                        <button class="btn btn-outline-secondary timeframe-btn" data-tf="1d">1d</button>
+                                    </div>
+                                    <button class="btn btn-sm btn-primary ms-2" onclick="loadSelectedChart()">
+                                        <i class="bi bi-graph-up"></i> Load Chart
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div id="market-chart" style="height: 500px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.5.1/dist/socket.io.min.js"></script>
+    <script>
+        // Global chart state
+        let currentSymbol = '';
+        let currentTimeframe = '15m';
+        
+        // Connect to Socket.IO server
+        const socket = io();
+        
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set active timeframe button
+            document.querySelectorAll('.timeframe-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.timeframe-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    currentTimeframe = this.getAttribute('data-tf');
+                });
+            });
+            
+            // Set default active timeframe
+            const defaultTimeframeBtn = document.querySelector('[data-tf="15m"]');
+            if (defaultTimeframeBtn) {
+                defaultTimeframeBtn.classList.add('active');
+            }
+        });
+        
+        // Listen for status updates
+        socket.on('status_update', function(data) {
+            const statusIndicator = document.getElementById('bot-status-indicator');
+            statusIndicator.className = 'status-indicator status-' + data.status;
+            statusIndicator.textContent = data.status;
+            
+            // Update status badge
+            const statusBadge = document.querySelector('.connect-status .badge');
+            if (data.status !== 'disconnected') {
+                statusBadge.className = 'badge rounded-pill bg-success';
+                statusBadge.innerHTML = '<i class="bi bi-check-circle"></i> Connected';
+            } else {
+                statusBadge.className = 'badge rounded-pill bg-danger';
+                statusBadge.innerHTML = '<i class="bi bi-x-circle"></i> Disconnected';
+            }
+        });
+        
+        // Listen for regimes updates
+        socket.on('regimes_update', function(regimes) {
+            const tbody = document.getElementById('regimes-table');
+            const regimesArray = Object.entries(regimes);
+            
+            if (!regimesArray || regimesArray.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center">No market regime data available</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = '';
+            regimesArray.forEach(([symbol, regime]) => {
+                const row = document.createElement('tr');
+                
+                let regimeClass = 'secondary';
+                if (regime.regime === 'trending_up') regimeClass = 'success';
+                else if (regime.regime === 'trending_down') regimeClass = 'danger';
+                else if (regime.regime === 'volatile') regimeClass = 'warning';
+                else if (regime.regime === 'ranging') regimeClass = 'info';
+                
+                const trendScoreAbs = Math.abs(regime.trend_score);
+                const trendScoreWidth = (trendScoreAbs / 100 * 100).toFixed(0);
+                const trendScoreClass = regime.trend_score > 0 ? 'bg-success' : 'bg-danger';
+                const trendScoreTextClass = regime.trend_score > 0 ? 'text-success' : 'text-danger';
+                
+                const volatilityWidth = (regime.volatility / 100 * 100).toFixed(0);
+                
+                row.innerHTML = `
+                    <td>${symbol}</td>
+                    <td>
+                        <span class="badge bg-${regimeClass}">
+                            ${regime.regime}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar ${trendScoreClass}" 
+                                 role="progressbar" 
+                                 style="width: ${trendScoreWidth}%" 
+                                 aria-valuenow="${regime.trend_score.toFixed(1)}" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="100">
+                            </div>
+                        </div>
+                        <small class="${trendScoreTextClass}">
+                            ${regime.trend_score.toFixed(1)}
+                        </small>
+                    </td>
+                    <td>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-warning" 
+                                 role="progressbar" 
+                                 style="width: ${volatilityWidth}%" 
+                                 aria-valuenow="${regime.volatility.toFixed(1)}" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="100">
+                            </div>
+                        </div>
+                        <small>${regime.volatility.toFixed(1)}%</small>
+                    </td>
+                    <td>${regime.since}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" onclick="showChart('${symbol}')">
+                            <i class="bi bi-graph-up"></i> Chart
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        });
+        
+        // Listen for signals updates
+        socket.on('signals_update', function(signals) {
+            const tbody = document.getElementById('signals-table');
+            const symbolsArray = Object.keys(signals);
+            
+            if (!symbolsArray || symbolsArray.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center">No trading signals available</td></tr>';
+                return;
+            }
+            
+            // Update chart symbol dropdown
+            const chartSymbolSelect = document.getElementById('chart-symbol');
+            chartSymbolSelect.innerHTML = '<option value="">Select Symbol</option>';
+            symbolsArray.forEach(symbol => {
+                const option = document.createElement('option');
+                option.value = symbol;
+                option.textContent = symbol;
+                chartSymbolSelect.appendChild(option);
+            });
+            
+            tbody.innerHTML = '';
+            symbolsArray.forEach(symbol => {
+                const signal = signals[symbol];
+                const row = document.createElement('tr');
+                
+                const patterns = signal.patterns ? signal.patterns.map(pattern => 
+                    `<span class="badge bg-secondary">${pattern}</span>`
+                ).join(' ') : '';
+                
+                row.innerHTML = `
+                    <td>${symbol}</td>
+                    <td>
+                        <div class="signal-meter">
+                            <div class="signal-bar ${signal.signal > 0 ? 'positive' : 'negative'}" 
+                                 style="width: ${Math.abs(signal.signal) * 100}%"></div>
+                            <span class="${signal.signal > 0 ? 'text-success' : 'text-danger'}">
+                                ${(Math.abs(signal.signal) * 100).toFixed(0)}% ${signal.signal > 0 ? 'BUY' : 'SELL'}
+                            </span>
+                        </div>
+                    </td>
+                    <td>${(signal.confidence * 100).toFixed(0)}%</td>
+                    <td>
+                        <span class="badge bg-${
+                            signal.market_regime === 'trending_up' ? 'success' : 
+                            signal.market_regime === 'trending_down' ? 'danger' : 
+                            signal.market_regime === 'volatile' ? 'warning' : 
+                            signal.market_regime === 'ranging' ? 'info' : 'secondary'
+                        }">
+                            ${signal.market_regime}
+                        </span>
+                    </td>
+                    <td class="${signal.sentiment > 0 ? 'text-success' : signal.sentiment < 0 ? 'text-danger' : ''}">
+                        ${(Math.abs(signal.sentiment) * 100).toFixed(0)}% ${
+                            signal.sentiment > 0 ? 'Positive' : 
+                            signal.sentiment < 0 ? 'Negative' : 'Neutral'
+                        }
+                    </td>
+                    <td>${patterns}</td>
+                    <td>${signal.timestamp}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        });
+        
+        // Show chart when clicking on chart button in regimes table
+        function showChart(symbol) {
+            const chartSymbolSelect = document.getElementById('chart-symbol');
+            chartSymbolSelect.value = symbol;
+            currentSymbol = symbol;
+            loadSelectedChart();
+        }
+        
+        // Load chart based on selected symbol and timeframe
+        function loadSelectedChart() {
+            const symbol = document.getElementById('chart-symbol').value;
+            
+            if (!symbol) {
+                alert('Please select a symbol');
+                return;
+            }
+            
+            currentSymbol = symbol;
+            
+            fetch(`/api/chart/price/${symbol}/${currentTimeframe}`)
+                .then(response => response.json())
+                .then(data => {
+                    createPriceChart('market-chart', data);
+                })
+                .catch(error => {
+                    console.error('Error loading chart:', error);
+                    document.getElementById('market-chart').innerHTML = 
+                        '<div class="alert alert-danger">Error loading chart data</div>';
+                });
+        }
+        
+        // Create price chart
+        function createPriceChart(containerId, data) {
+            const container = document.getElementById(containerId);
+            
+            // Filter out items without all required data
+            const filteredData = data.data.filter(item => 
+                item.timestamp && item.open && item.high && item.low && item.close
+            );
+            
+            // Create traces
+            const trace = {
+                x: filteredData.map(item => item.timestamp),
+                open: filteredData.map(item => item.open),
+                high: filteredData.map(item => item.high),
+                low: filteredData.map(item => item.low),
+                close: filteredData.map(item => item.close),
+                type: 'candlestick',
+                name: data.symbol,
+                increasing: {line: {color: '#4CAF50'}},
+                decreasing: {line: {color: '#F44336'}}
+            };
+            
+            // Optional volume trace
+            let traces = [trace];
+            if (filteredData[0] && filteredData[0].volume) {
+                const volumeTrace = {
+                    x: filteredData.map(item => item.timestamp),
+                    y: filteredData.map(item => item.volume),
+                    type: 'bar',
+                    name: 'Volume',
+                    yaxis: 'y2',
+                    marker: {
+                        color: filteredData.map((item, i) => 
+                            (i > 0 && item.close > filteredData[i-1].close) ? 'rgba(76, 175, 80, 0.3)' : 'rgba(244, 67, 54, 0.3)'
+                        )
+                    }
+                };
+                traces.push(volumeTrace);
+            }
+            
+            // Create layout
+            const layout = {
+                title: `${data.symbol} - ${data.timeframe} Chart`,
+                dragmode: 'zoom',
+                showlegend: false,
+                xaxis: {
+                    rangeslider: {
+                        visible: false
+                    },
+                    title: 'Time',
+                    type: 'date'
+                },
+                yaxis: {
+                    title: 'Price',
+                    autorange: true,
+                    side: 'left'
+                },
+                yaxis2: {
+                    title: 'Volume',
+                    overlaying: 'y',
+                    side: 'right',
+                    showgrid: false
+                },
+                plot_bgcolor: '#1e1e1e',
+                paper_bgcolor: '#1e1e1e',
+                font: {
+                    color: '#e0e0e0'
+                },
+                autosize: true,
+                margin: {
+                    l: 50,
+                    r: 50,
+                    b: 40,
+                    t: 40,
+                    pad: 4
+                }
+            };
+            
+            // Create chart
+            Plotly.newPlot(container, traces, layout);
+        }
+        
+        // Send command function
+        function sendCommand(command, params = {}) {
+            socket.emit('command', {
+                command: command,
+                params: params
+            });
+        }
+        
+        // Refresh data function
+        function refreshData() {
+            fetch('/api/regimes')
+                .then(response => response.json())
+                .then(data => {
+                    socket.emit('regimes_update', data);
+                });
+                
+            fetch('/api/signals')
+                .then(response => response.json())
+                .then(data => {
+                    socket.emit('signals_update', data);
+                });
+                
+            if (currentSymbol) {
+                loadSelectedChart();
+            }
+        }
+    </script>
+</body>
+</html>

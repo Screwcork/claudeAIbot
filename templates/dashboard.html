@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Bot - Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <nav id="sidebar" class="col-md-3 col-lg-2 d-md-block bg-dark sidebar collapse">
+                <div class="position-sticky pt-3">
+                    <div class="sidebar-header mb-4">
+                        <h3 class="text-light">Trading Bot</h3>
+                        <div id="bot-status-indicator" class="status-indicator {{ 'status-' + bot_status.status }}">
+                            {{ bot_status.status }}
+                        </div>
+                    </div>
+                    
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="{{ url_for('dashboard') }}">
+                                <i class="bi bi-speedometer2 me-2"></i>
+                                Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('positions') }}">
+                                <i class="bi bi-graph-up me-2"></i>
+                                Positions
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('performance') }}">
+                                <i class="bi bi-bar-chart me-2"></i>
+                                Performance
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('markets') }}">
+                                <i class="bi bi-globe me-2"></i>
+                                Market Analysis
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('config') }}">
+                                <i class="bi bi-gear me-2"></i>
+                                Configuration
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('logs') }}">
+                                <i class="bi bi-journal-text me-2"></i>
+                                Logs
+                            </a>
+                        </li>
+                    </ul>
+                    
+                    <hr class="text-light">
+                    
+                    <div class="bot-controls">
+                        <h6 class="text-light px-3">Bot Controls</h6>
+                        <div class="d-flex justify-content-around">
+                            <button id="start-bot" class="btn btn-success btn-sm" onclick="sendCommand('start')">
+                                <i class="bi bi-play-fill"></i> Start
+                            </button>
+                            <button id="pause-bot" class="btn btn-warning btn-sm" onclick="sendCommand('pause')">
+                                <i class="bi bi-pause-fill"></i> Pause
+                            </button>
+                            <button id="stop-bot" class="btn btn-danger btn-sm" onclick="sendCommand('stop')">
+                                <i class="bi bi-stop-fill"></i> Stop
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+            
+            <!-- Main content -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2">Dashboard Overview</h1>
+                    <div class="btn-toolbar mb-2 mb-md-0">
+                        <div class="btn-group me-2">
+                            <span class="connect-status">
+                                <span class="badge rounded-pill bg-{{ 'success' if bot_status.status != 'disconnected' else 'danger' }}">
+                                    <i class="bi bi-{{ 'check-circle' if bot_status.status != 'disconnected' else 'x-circle' }}"></i>
+                                    {{ 'Connected' if bot_status.status != 'disconnected' else 'Disconnected' }}
+                                </span>
+                            </span>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="refreshData()">
+                            <i class="bi bi-arrow-repeat"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Portfolio Summary -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h5 class="card-title">Portfolio Summary</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <div class="stat-card">
+                                            <h4>${{ portfolio.total_balance|round(2) }}</h4>
+                                            <span>Total Balance</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="stat-card">
+                                            <h4>${{ portfolio.available_balance|round(2) }}</h4>
+                                            <span>Available Balance</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row mt-3">
+                                    <div class="col-6">
+                                        <div class="stat-card">
+                                            <h4 class="{{ 'text-success' if portfolio.daily_pnl > 0 else 'text-danger' }}">
+                                                ${{ portfolio.daily_pnl|round(2) }} ({{ portfolio.daily_pnl_percentage|round(2) }}%)
+                                            </h4>
+                                            <span>Today's P&L</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="stat-card">
+                                            <h4>{{ portfolio.win_rate|round(1) }}%</h4>
+                                            <span>Win Rate</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row mt-3">
+                                    <div class="col-6">
+                                        <div class="stat-card">
+                                            <h4>{{ portfolio.total_positions }}/{{ portfolio.long_positions }}/{{ portfolio.short_positions }}</h4>
+                                            <span>Positions (Total/Long/Short)</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="stat-card">
+                                            <h4 class="text-warning">{{ portfolio.current_drawdown|round(2) }}%</h4>
+                                            <span>Current Drawdown</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h5 class="card-title">Equity Chart</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="equity-chart" style="height: 250px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Open Positions -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="card-title">Open Positions</h5>
+                                <a href="{{ url_for('positions') }}" class="btn btn-sm btn-outline-primary">View All</a>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Symbol</th>
+                                                <th>Side</th>
+                                                <th>Entry Price</th>
+                                                <th>Size</th>
+                                                <th>Value</th>
+                                                <th>PnL</th>
+                                                <th>PnL %</th>
+                                                <th>Duration</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="positions-table">
+                                            {% for position in positions %}
+                                            <tr>
+                                                <td>{{ position.symbol }}</td>
+                                                <td>
+                                                    <span class="badge bg-{{ 'success' if position.side == 'buy' else 'danger' }}">
+                                                        {{ position.side|upper }}
+                                                    </span>
+                                                </td>
+                                                <td>${{ position.entry_price|round(2) }}</td>
+                                                <td>{{ position.amount }}</td>
+                                                <td>${{ position.value|round(2) }}</td>
+                                                <td class="{{ 'text-success' if position.unrealized_pnl > 0 else 'text-danger' }}">
+                                                    ${{ position.unrealized_pnl|round(2) }}
+                                                </td>
+                                                <td class="{{ 'text-success' if position.pnl_percentage > 0 else 'text-danger' }}">
+                                                    {{ position.pnl_percentage|round(2) }}%
+                                                </td>
+                                                <td>{{ position.duration }}</td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-outline-danger" onclick="closePosition('{{ position.id }}')">
+                                                        Close
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                            {% if not positions %}
+                                            <tr>
+                                                <td colspan="9" class="text-center">No open positions</td>
+                                            </tr>
+                                            {% endif %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Recent Signals -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="card-title">Recent Trading Signals</h5>
+                                <a href="{{ url_for('markets') }}" class="btn btn-sm btn-outline-primary">View All</a>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Symbol</th>
+                                                <th>Signal</th>
+                                                <th>Confidence</th>
+                                                <th>Market Regime</th>
+                                                <th>Sentiment</th>
+                                                <th>Patterns</th>
+                                                <th>Time</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="signals-table">
+                                            {% for symbol, signal in signals.items() %}
+                                            <tr>
+                                                <td>{{ symbol }}</td>
+                                                <td>
+                                                    <div class="signal-meter">
+                                                        <div class="signal-bar {{ 'positive' if signal.signal > 0 else 'negative' }}" style="width: {{ (signal.signal|abs * 100)|round }}%"></div>
+                                                        <span class="{{ 'text-success' if signal.signal > 0 else 'text-danger' }}">
+                                                            {{ (signal.signal|abs * 100)|round }}% {{ 'BUY' if signal.signal > 0 else 'SELL' }}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>{{ (signal.confidence * 100)|round }}%</td>
+                                                <td>
+                                                    <span class="badge bg-{{ 'success' if signal.market_regime == 'trending_up' else 'danger' if signal.market_regime == 'trending_down' else 'warning' if signal.market_regime == 'volatile' else 'info' if signal.market_regime == 'ranging' else 'secondary' }}">
+                                                        {{ signal.market_regime }}
+                                                    </span>
+                                                </td>
+                                                <td class="{{ 'text-success' if signal.sentiment > 0 else 'text-danger' if signal.sentiment < 0 else '' }}">
+                                                    {{ (signal.sentiment|abs * 100)|round }}% {{ 'Positive' if signal.sentiment > 0 else 'Negative' if signal.sentiment < 0 else 'Neutral' }}
+                                                </td>
+                                                <td>
+                                                    {% for pattern in signal.patterns %}
+                                                    <span class="badge bg-secondary">{{ pattern }}</span>
+                                                    {% endfor %}
+                                                </td>
+                                                <td>{{ signal.timestamp }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                            {% if not signals %}
+                                            <tr>
+                                                <td colspan="7" class="text-center">No recent signals</td>
+                                            </tr>
+                                            {% endif %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.5.1/dist/socket.io.min.js"></script>
+    <script>
+        // Load equity chart
+        fetch('/api/chart/equity')
+            .then(response => response.json())
+            .then(data => {
+                Plotly.newPlot('equity-chart', data.data, data.layout);
+            });
+        
+        // Connect to Socket.IO server
+        const socket = io();
+        
+        // Listen for status updates
+        socket.on('status_update', function(data) {
+            const statusIndicator = document.getElementById('bot-status-indicator');
+            statusIndicator.className = 'status-indicator status-' + data.status;
+            statusIndicator.textContent = data.status;
+            
+            // Update status badge
+            const statusBadge = document.querySelector('.connect-status .badge');
+            if (data.status !== 'disconnected') {
+                statusBadge.className = 'badge rounded-pill bg-success';
+                statusBadge.innerHTML = '<i class="bi bi-check-circle"></i> Connected';
+            } else {
+                statusBadge.className = 'badge rounded-pill bg-danger';
+                statusBadge.innerHTML = '<i class="bi bi-x-circle"></i> Disconnected';
+            }
+        });
+        
+        // Listen for portfolio updates
+        socket.on('portfolio_update', function(data) {
+            // Update portfolio data
+            document.querySelectorAll('.stat-card h4').forEach((element, index) => {
+                switch (index) {
+                    case 0: // Total Balance
+                        element.textContent = '$' + data.total_balance.toFixed(2);
+                        break;
+                    case 1: // Available Balance
+                        element.textContent = '$' + data.available_balance.toFixed(2);
+                        break;
+                    case 2: // Today's P&L
+                        element.textContent = '$' + data.daily_pnl.toFixed(2) + ' (' + data.daily_pnl_percentage.toFixed(2) + '%)';
+                        element.className = data.daily_pnl > 0 ? 'text-success' : 'text-danger';
+                        break;
+                    case 3: // Win Rate
+                        element.textContent = data.win_rate.toFixed(1) + '%';
+                        break;
+                    case 4: // Positions
+                        element.textContent = data.total_positions + '/' + data.long_positions + '/' + data.short_positions;
+                        break;
+                    case 5: // Drawdown
+                        element.textContent = data.current_drawdown.toFixed(2) + '%';
+                        break;
+                }
+            });
+        });
+        
+        // Listen for positions updates
+        socket.on('positions_update', function(positions) {
+            const tbody = document.getElementById('positions-table');
+            if (!positions || positions.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center">No open positions</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = '';
+            positions.forEach(position => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${position.symbol}</td>
+                    <td>
+                        <span class="badge bg-${position.side === 'buy' ? 'success' : 'danger'}">
+                            ${position.side.toUpperCase()}
+                        </span>
+                    </td>
+                    <td>$${position.entry_price.toFixed(2)}</td>
+                    <td>${position.amount}</td>
+                    <td>$${position.value.toFixed(2)}</td>
+                    <td class="${position.unrealized_pnl > 0 ? 'text-success' : 'text-danger'}">
+                        $${position.unrealized_pnl.toFixed(2)}
+                    </td>
+                    <td class="${position.pnl_percentage > 0 ? 'text-success' : 'text-danger'}">
+                        ${position.pnl_percentage.toFixed(2)}%
+                    </td>
+                    <td>${position.duration}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-danger" onclick="closePosition('${position.id}')">
+                            Close
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        });
+        
+        // Listen for signals updates
+        socket.on('signals_update', function(signals) {
+            const tbody = document.getElementById('signals-table');
+            const symbolsArray = Object.keys(signals);
+            
+            if (!symbolsArray || symbolsArray.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center">No recent signals</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = '';
+            symbolsArray.forEach(symbol => {
+                const signal = signals[symbol];
+                const row = document.createElement('tr');
+                
+                const patterns = signal.patterns ? signal.patterns.map(pattern => 
+                    `<span class="badge bg-secondary">${pattern}</span>`
+                ).join(' ') : '';
+                
+                row.innerHTML = `
+                    <td>${symbol}</td>
+                    <td>
+                        <div class="signal-meter">
+                            <div class="signal-bar ${signal.signal > 0 ? 'positive' : 'negative'}" 
+                                 style="width: ${Math.abs(signal.signal) * 100}%"></div>
+                            <span class="${signal.signal > 0 ? 'text-success' : 'text-danger'}">
+                                ${(Math.abs(signal.signal) * 100).toFixed(0)}% ${signal.signal > 0 ? 'BUY' : 'SELL'}
+                            </span>
+                        </div>
+                    </td>
+                    <td>${(signal.confidence * 100).toFixed(0)}%</td>
+                    <td>
+                        <span class="badge bg-${
+                            signal.market_regime === 'trending_up' ? 'success' : 
+                            signal.market_regime === 'trending_down' ? 'danger' : 
+                            signal.market_regime === 'volatile' ? 'warning' : 
+                            signal.market_regime === 'ranging' ? 'info' : 'secondary'
+                        }">
+                            ${signal.market_regime}
+                        </span>
+                    </td>
+                    <td class="${signal.sentiment > 0 ? 'text-success' : signal.sentiment < 0 ? 'text-danger' : ''}">
+                        ${(Math.abs(signal.sentiment) * 100).toFixed(0)}% ${
+                            signal.sentiment > 0 ? 'Positive' : 
+                            signal.sentiment < 0 ? 'Negative' : 'Neutral'
+                        }
+                    </td>
+                    <td>${patterns}</td>
+                    <td>${signal.timestamp}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        });
+        
+        // Refresh equity chart
+        socket.on('metrics_update', function(data) {
+            if (data.equity_data) {
+                fetch('/api/chart/equity')
+                    .then(response => response.json())
+                    .then(chartData => {
+                        Plotly.react('equity-chart', chartData.data, chartData.layout);
+                    });
+            }
+        });
+        
+        // Send command function
+        function sendCommand(command, params = {}) {
+            socket.emit('command', {
+                command: command,
+                params: params
+            });
+        }
+        
+        // Close position function
+        function closePosition(positionId) {
+            if (confirm('Are you sure you want to close this position?')) {
+                fetch(`/api/position/close/${positionId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('Position closed successfully');
+                            refreshData();
+                        } else {
+                            alert('Error closing position: ' + data.error);
+                        }
+                    });
+            }
+        }
+        
+        // Refresh data function
+        function refreshData() {
+            fetch('/api/portfolio')
+                .then(response => response.json())
+                .then(data => {
+                    socket.emit('portfolio_update', data);
+                });
+                
+            fetch('/api/positions')
+                .then(response => response.json())
+                .then(data => {
+                    socket.emit('positions_update', data);
+                });
+                
+            fetch('/api/signals')
+                .then(response => response.json())
+                .then(data => {
+                    socket.emit('signals_update', data);
+                });
+                
+            fetch('/api/chart/equity')
+                .then(response => response.json())
+                .then(data => {
+                    Plotly.react('equity-chart', data.data, data.layout);
+                });
+        }
+    </script>
+</body>
+</html>

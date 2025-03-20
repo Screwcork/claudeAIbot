@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Bot - Configuration</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <nav id="sidebar" class="col-md-3 col-lg-2 d-md-block bg-dark sidebar collapse">
+                <div class="position-sticky pt-3">
+                    <div class="sidebar-header mb-4">
+                        <h3 class="text-light">Trading Bot</h3>
+                        <div id="bot-status-indicator" class="status-indicator {{ 'status-' + bot_status.status }}">
+                            {{ bot_status.status }}
+                        </div>
+                    </div>
+                    
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('dashboard') }}">
+                                <i class="bi bi-speedometer2 me-2"></i>
+                                Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('positions') }}">
+                                <i class="bi bi-graph-up me-2"></i>
+                                Positions
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('performance') }}">
+                                <i class="bi bi-bar-chart me-2"></i>
+                                Performance
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('markets') }}">
+                                <i class="bi bi-globe me-2"></i>
+                                Market Analysis
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link active" href="{{ url_for('config') }}">
+                                <i class="bi bi-gear me-2"></i>
+                                Configuration
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('logs') }}">
+                                <i class="bi bi-journal-text me-2"></i>
+                                Logs
+                            </a>
+                        </li>
+                    </ul>
+                    
+                    <hr class="text-light">
+                    
+                    <div class="bot-controls">
+                        <h6 class="text-light px-3">Bot Controls</h6>
+                        <div class="d-flex justify-content-around">
+                            <button id="start-bot" class="btn btn-success btn-sm" onclick="sendCommand('start')">
+                                <i class="bi bi-play-fill"></i> Start
+                            </button>
+                            <button id="pause-bot" class="btn btn-warning btn-sm" onclick="sendCommand('pause')">
+                                <i class="bi bi-pause-fill"></i> Pause
+                            </button>
+                            <button id="stop-bot" class="btn btn-danger btn-sm" onclick="sendCommand('stop')">
+                                <i class="bi bi-stop-fill"></i> Stop
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+            
+            <!-- Main content -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2">Configuration</h1>
+                    <div class="btn-toolbar mb-2 mb-md-0">
+                        <div class="btn-group me-2">
+                            <span class="connect-status">
+                                <span class="badge rounded-pill bg-{{ 'success' if bot_status.status != 'disconnected' else 'danger' }}">
+                                    <i class="bi bi-{{ 'check-circle' if bot_status.status != 'disconnected' else 'x-circle' }}"></i>
+                                    {{ 'Connected' if bot_status.status != 'disconnected' else 'Disconnected' }}
+                                </span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="card-title">Bot Configuration</h5>
+                                <div>
+                                    <button id="save-config" class="btn btn-primary" onclick="saveConfig()">
+                                        <i class="bi bi-save"></i> Save Changes
+                                    </button>
+                                    <button id="reload-config" class="btn btn-outline-secondary" onclick="loadConfig()">
+                                        <i class="bi bi-arrow-repeat"></i> Reload
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <ul class="nav nav-tabs mb-3" id="configTabs" role="tablist">
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link active" id="general-tab" data-bs-toggle="tab" data-bs-target="#general" type="button">
+                                            General
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="trading-tab" data-bs-toggle="tab" data-bs-target="#trading" type="button">
+                                            Trading Settings
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="ml-tab" data-bs-toggle="tab" data-bs-target="#ml" type="button">
+                                            ML Settings
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="risk-tab" data-bs-toggle="tab" data-bs-target="#risk" type="button">
+                                            Risk Management
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="sentiment-tab" data-bs-toggle="tab" data-bs-target="#sentiment" type="button">
+                                            Sentiment Analysis
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="execution-tab" data-bs-toggle="tab" data-bs-target="#execution" type="button">
+                                            Execution
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="logging-tab" data-bs-toggle="tab" data-bs-target="#logging" type="button">
+                                            Logging
+                                        </button>
+                                    </li>
+                                </ul>
+                                
+                                <div class="tab-content" id="configTabContent">
+                                    <!-- General Settings -->
+                                    <div class="tab-pane fade show active" id="general" role="tabpanel">
+                                        <div class="config-section">
+                                            <h3>API Configuration</h3>
+                                            <div class="row g-3">
+                                                <div class="col-md-6">
+                                                    <label for="api_key" class="form-label">API Key</label>
+                                                    <input type="text" class="form-control" id="api_key" name="api_key">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="api_secret" class="form-label">API Secret</label>
+                                                    <input type="password" class="form-control" id="api_secret" name="api_secret">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="base_url" class="form-label">Base URL</label>
+                                                    <input type="text" class="form-control" id="base_url" name="base_url">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="form-check form-switch mt-4">
+                                                        <input class="form-check-input" type="checkbox" id="testnet" name="testnet">
+                                                        <label class="form-check-label" for="testnet">Use Testnet</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="config-section">
+                                            <h3>Trading Symbols</h3>
+                                            <div class="mb-3">
+                                                <div id="symbols-container">
+                                                    <!-- Symbols will be added dynamically -->
+                                                </div>
+                                                <button type="button" class="btn btn-outline-primary mt-2" onclick="addSymbol()">
+                                                    <i class="bi bi-plus"></i> Add Symbol
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="config-section">
+                                            <h3>Timeframes</h3>
+                                            <div class="row g-3">
+                                                <div class="col-md-6">
+                                                    <label for="primary_timeframe" class="form-label">Primary Timeframe</label>
+                                                    <select class="form-select" id="primary_timeframe" name="primary_timeframe">
+                                                        <option value="1m">1 minute</option>
+                                                        <option value="5m">5 minutes</option>
+                                                        <option value="15m">15 minutes</option>
+                                                        <option value="30m">30 minutes</option>
+                                                        <option value="1h">1 hour</option>
+                                                        <option value="4h">4 hours</option>
+                                                        <option value="1d">1 day</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Secondary Timeframes</label>
+                                                    <div id="secondary-timeframes">
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" id="tf_1h" name="secondary_timeframes" value="1h">
+                                                            <label class="form-check-label" for="tf_1h">1 hour</label>
+                                                        </div>
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" id="tf_4h" name="secondary_timeframes" value="4h">
+                                                            <label class="form-check-label" for="tf_4h">4 hours</label>
+                                                        </div>
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" id="tf_1d" name="secondary_timeframes" value="1d">
+                                                            <label class="form-check-label" for="tf_1d">1 day</label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Trading Settings -->
+                                    <div class="tab-pane fade" id="trading" role="tabpanel">
+                                        <div class="config-section">
+                                            <h3>Position Settings</h3>
+                                            <div class="row g-3">
+                                                <div class="col-md-6">
+                                                    <label for="max_positions" class="form-label">Maximum Positions</label>
+                                                    <input type="number" class="form-control" id="max_positions" name="max_positions" min="1" max="50">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="account_risk_per_trade" class="form-label">Account Risk Per Trade (%)</label>
+                                                    <input type="number" class="form-control" id="account_risk_per_trade" name="account_risk_per_trade" min="0.1" max="10" step="0.1">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="default_stop_loss_pct" class="form-label">Default Stop Loss (%)</label>
+                                                    <input type="number" class="form-control" id="default_stop_loss_pct" name="default_stop_loss_pct" min="0.1" max="20" step="0.1">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="default_take_profit_pct" class="form-label">Default Take Profit (%)</label>
+                                                    <input type="number" class="form-control" id="default_take_profit_pct" name="default_take_profit_pct" min="0.1" max="50" step="0.1">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="config-section">
+                                            <h3>Trailing Stop</h3>
+                                            <div class="row g-3">
+                                                <div class="col-md-12">
+                                                    <div class="form-check form-switch">
+                                                        <input class="form-check-input" type="checkbox" id="trailing_stop" name="trailing_stop">
+                                                        <label class="form-check-label" for="trailing_stop">Enable Trailing Stop</label>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="trailing_stop_activation" class="form-label">Activation Threshold (%)</label>
+                                                    <input type="number" class="form-control" id="trailing_stop_activation" name="trailing_stop_activation" min="0.1" max="20" step="0.1">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="trailing_stop_distance" class="form-label">Distance (%)</label>
+                                                    <input type="number" class="form-control" id="trailing_stop_distance" name="trailing_stop_distance" min="0.1" max="10" step="0.1">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- ML Settings -->
+                                    <div class="tab-pane fade" id="ml" role="tabpanel">
+                                        <div class="config-section">
+                                            <h3>Feature & Model Settings</h3>
+                                            <div class="row g-3">
+                                                <div class="col-md-6">
+                                                    <label for="feature_window" class="form-label">Feature Window (candles)</label>
+                                                    <input type="number" class="form-control" id="feature_window" name="feature_window" min="10" max="500">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="prediction_window" class="form-label">Prediction Window (candles)</label>
+                                                    <input type="number" class="form-control" id="prediction_window" name="prediction_window" min="1" max="100">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="train_interval_days" class="form-label">Training Interval (days)</label>
+                                                    <input type="number" class="form-control" id="train_interval_days" name="train_interval_days" min="1" max="90">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="confidence_threshold" class="form-label">Confidence Threshold</label>
+                                                    <input type="number" class="form-control" id="confidence_threshold" name="confidence_threshold" min="0.1" max="0.99" step="0.01">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="config-section">
+                                            <h3>Model Weights</h3>
+                                            <div class="row g-3">
+                                                <div class="col-md-3">
+                                                    <label for="xgboost_weight" class="form-label">XGBoost</label>
+                                                    <input type="number" class="form-control model-weight" id="xgboost_weight" name="xgboost_weight" min="0" max="1" step="0.05">
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label for="lstm_weight" class="form-label">LSTM</label>
+                                                    <input type="number" class="form-control model-weight" id="lstm_weight" name="lstm_weight" min="0" max="1" step="0.05">
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label for="catboost_weight" class="form-label">CatBoost</label>
+                                                    <input type="number" class="form-control model-weight" id="catboost_weight" name="catboost_weight" min="0" max="1" step="0.05">
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label for="transformer_weight" class="form-label">Transformer</label>
+                                                    <input type="number" class="form-control model-weight" id="transformer_weight" name="transformer_weight" min="0" max="1" step="0.05">
+                                                </div>
+                                                <div class="col-12">
+                                                    <div class="alert alert-info mt-2">
+                                                        <small>Model weights should sum to 1.0</small>
+                                                        <div class="progress mt-1">
+                                                            <div id="weights-progress" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                                        </div>
+                                                        <div id="weights-sum" class="text-end">Total: 0</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Risk Management -->
+                                    <div class="tab-pane fade" id="risk" role="tabpanel">
+                                        <div class="config-section">
+                                            <h3>Risk Limits</h3>
+                                            <div class="row g-3">
+                                                <div class="col-md-6">
+                                                    <label for="max_daily_loss" class="form-label">Maximum Daily Loss (%)</label>
+                                                    <input type="number" class="form-control" id="max_daily_loss" name="max_daily_loss" min="0.1" max="20" step="0.1">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="max_drawdown" class="form-label">Maximum Drawdown (%)</label>
+                                                    <input type="number" class="form-control" id="max_drawdown" name="max_drawdown" min="0.1" max="50" step="0.1">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="position_correlation_limit" class="form-label">Position Correlation Limit</label>
+                                                    <input type="number" class="form-control" id="position_correlation_limit" name="position_correlation_limit" min="0.1" max="1" step="0.1">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Sentiment Analysis -->
+                                    <div class="tab-pane fade" id="sentiment" role="tabpanel">
+                                        <div class="config-section">
+                                            <h3>Sentiment Settings</h3>
+                                            <div class="row g-3">
+                                                <div class="col-md-12">
+                                                    <div class="form-check form-switch">
+                                                        <input class="form-check-input" type="checkbox" id="sentiment_enabled" name="sentiment_enabled">
+                                                        <label class="form-check-label" for="sentiment_enabled">Enable Sentiment Analysis</label>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="sentiment_impact_weight" class="form-label">Impact Weight</label>
+                                                    <input type="number" class="form-control" id="sentiment_impact_weight" name="sentiment_impact_weight" min="0" max="1" step="0.1">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="sentiment_refresh_interval" class="form-label">Refresh Interval (minutes)</label>
+                                                    <input type="number" class="form-control" id="sentiment_refresh_interval" name="sentiment_refresh_interval" min="5" max="1440">
+                                                </div>
+                                                <div class="col-md-12">
+                                                    <label class="form-label">Data Sources</label>
+                                                    <div id="sentiment-sources">
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" id="source_twitter" name="sentiment_sources" value="twitter">
+                                                            <label class="form-check-label" for="source_twitter">Twitter</label>
+                                                        </div>
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" id="source_reddit" name="sentiment_sources" value="reddit">
+                                                            <label class="form-check-label" for="source_reddit">Reddit</label>
+                                                        </div>
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" id="source_news" name="sentiment_sources" value="news">
+                                                            <label class="form-check-label" for="source_news">News</label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Execution -->
+                                    <div class="tab-pane fade" id="execution" role="tabpanel">
+                                        <div class="config-section">
+                                            <h3>Order Execution</h3>
+                                            <div class="row g-3">
+                                                <div class="col-md-6">
+                                                    <label for="order_type" class="form-label">Order Type</label>
+                                                    <select class="form-select" id="order_type" name="order_type">
+                                                        <option value="market">Market</option>
+                                                        <option value="limit">Limit</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="limit_order_distance" class="form-label">Limit Order Distance (%)</label>
+                                                    <input type="number" class="form-control" id="limit_order_distance" name="limit_order_distance" min="0" max="1" step="0.001">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="retry_attempts" class="form-label">Retry Attempts</label>
+                                                    <input type="number" class="form-control" id="retry_attempts" name="retry_attempts" min="1" max="10">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="retry_delay" class="form-label">Retry Delay (seconds)</label>
+                                                    <input type="number" class="form-control" id="retry_delay" name="retry_delay" min="1" max="60">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="execution_cooldown" class="form-label">Execution Cooldown (seconds)</label>
+                                                    <input type="number" class="form-control" id="execution_cooldown" name="execution_cooldown" min="0" max="3600">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Logging -->
+                                    <div class="tab-pane fade" id="logging" role="tabpanel">
+                                        <div class="config-section">
+                                            <h3>Logging Settings</h3>
+                                            <div class="row g-3">
+                                                <div class="col-md-6">
+                                                    <label for="logging_level" class="form-label">Log Level</label>
+                                                    <select class="form-select" id="logging_level" name="logging_level">
+                                                        <option value="DEBUG">DEBUG</option>
+                                                        <option value="INFO">INFO</option>
+                                                        <option value="WARNING">WARNING</option>
+                                                        <option value="ERROR">ERROR</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="form-check form-switch mt-4">
+                                                        <input class="form-check-input" type="checkbox" id="save_predictions" name="save_predictions">
+                                                        <label class="form-check-label" for="save_predictions">Save Model Predictions</label>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="form-check form-switch">
+                                                        <input class="form-check-input" type="checkbox" id="detailed_trade_logs" name="detailed_trade_logs">
+                                                        <label class="form-check-label" for="detailed_trade_logs">Detailed Trade Logs</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-footer">
+                                <div class="d-flex justify-content-between">
+                                    <button type="button" class="btn btn-secondary" onclick="resetConfig()">Reset to Defaults</button>
+                                    <button type="button" class="btn btn-primary" onclick="saveConfig()">Save Changes</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.5.1/dist/socket.io.min.js"></script>
+    <script>
+        // Connect to Socket.IO server
+        const socket = io();
+        
+        // Config object
+        let config = {};
+        
+        // Listen for status updates
+        socket.on('status_update', function(data) {
+            const statusIndicator = document.getElementById('bot-status-indicator');
+            statusIndicator.className = 'status-indicator status-' + data.status;
+            statusIndicator.textContent = data.status;
+            
+            // Update status badge
+            const statusBadge = document.querySelector('.connect-status .badge');
+            if (data.status !== 'disconnected') {
+                statusBadge.className = 'badge rounded-pill bg-success';
+                statusBadge.innerHTML = '<i class="bi bi-check-circle"></i> Connected';
+            } else {
+                statusBadge.className = 'badge rounded-pill bg-danger';
+                statusBadge.innerHTML = '<i class="bi bi-x-circle"></i> Disconnected';
+            }
+        });
+        
+        // Load config on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadConfig();
+            
+            // Setup model weights calculation
+            document.querySelectorAll('.model-weight').forEach(input => {
+                input.addEventListener('change', updateModelWeightsSum);
+            });
+        });
+        
+        // Send command function
+        function sendCommand(command, params = {}) {
+            socket.emit('command', {
+                command: command,
+                params: params
+            });
+        }
+        
+        // Load configuration
+        function loadConfig() {
+            fetch('/api/config')
+                .then(response => response.json())
+                .then(data => {
+                    config = data;
+                    populateConfigForm(config);
+                })
+                .catch(error => {
+                    console.error('Error loading config:', error);
+                    alert('Error loading configuration');
+                });
+        }
+        
+        // Populate config form
+        function populateConfigForm(config) {
+            // General settings
+            document.getElementById('api_key').value = config.api_key || '';
+            document.getElementById('api_secret').value = config.api_secret || '';
+            document.getElementById('base_url').value = config.base_url || 'https://api.bybit.com';
+            document.getElementById('testnet').checked = config.testnet || false;
+            
+            // Add symbols
+            const symbolsContainer = document.getElementById('symbols-container');
+            symbolsContainer.innerHTML = '';
+            
+            if (config.symbols && config.symbols.length) {
+                config.symbols.forEach((symbol, index) => {
+                    addSymbolInput(symbol);
+                });
+            } else {
+                addSymbolInput('');
+            }
+            
+            // Timeframes
+            if (config.timeframes) {
+                document.getElementById('primary_timeframe').value = config.timeframes.primary || '15m';
+                
+                // Secondary timeframes
+                if (config.timeframes.secondary && Array.isArray(config.timeframes.secondary)) {
+                    document.querySelectorAll('[name="secondary_timeframes"]').forEach(checkbox => {
+                        checkbox.checked = config.timeframes.secondary.includes(checkbox.value);
+                    });
+                }
+            }
+            
+            // Trading settings
+            if (config.trade_settings) {
+                document.getElementById('max_positions').value = config.trade_settings.max_positions || 3;
+                document.getElementById('account_risk_per_trade').value = config.trade_settings.account_risk_per_trade || 0.02;
+                document.getElementById('default_stop_loss_pct').value = config.trade_settings.default_stop_loss_pct || 0.02;
+                document.getElementById('default_take_profit_pct').value = config.trade_settings.default_take_profit_pct || 0.06;
+                document.getElementById('trailing_stop').checked = config.trade_settings.trailing_stop || false;
+                document.getElementById('trailing_stop_activation').value = config.trade_settings.trailing_stop_activation || 0.02;
+                document.getElementById('trailing_stop_distance').value = config.trade_settings.trailing_stop_distance || 0.01;
+            }
+            
+            // ML settings
+            if (config.ml_settings) {
+                document.getElementById('feature_window').value = config.ml_settings.feature_window || 50;
+                document.getElementById('prediction_window').value = config.ml_settings.prediction_window || 12;
+                document.getElementById('train_interval_days').value = config.ml_settings.train_interval_days || 7;
+                document.getElementById('confidence_threshold').value = config.ml_settings.confidence_threshold || 0.5;
+                
+                // Model weights
+                if (config.ml_settings.model_weights) {
+                    document.getElementById('xgboost_weight').value = config.ml_settings.model_weights.xgboost || 0.25;
+                    document.getElementById('lstm_weight').value = config.ml_settings.model_weights.lstm || 0.35;
+                    document.getElementById('catboost_weight').value = config.ml_settings.model_weights.catboost || 0.25;
+                    document.getElementById('transformer_weight').value = config.ml_settings.model_weights.transformer || 0.15;
+                    
+                    updateModelWeightsSum();
+                }
+            }
+            
+            // Risk management
+            if (config.risk_management) {
+                document.getElementById('max_daily_loss').value = config.risk_management.max_daily_loss || 0.05;
+                document.getElementById('max_drawdown').value = config.risk_management.max_drawdown || 0.15;
+                document.getElementById('position_correlation_limit').value = config.risk_management.position_correlation_limit || 0.7;
+            }
+            
+            // Sentiment analysis
+            if (config.sentiment_analysis) {
+                document.getElementById('sentiment_enabled').checked = config.sentiment_analysis.enabled || false;
+                document.getElementById('sentiment_impact_weight').value = config.sentiment_analysis.impact_weight || 0.2;
+                document.getElementById('sentiment_refresh_interval').value = config.sentiment_analysis.refresh_interval_minutes || 30;
+                
+                // Sources
+                if (config.sentiment_analysis.sources && Array.isArray(config.sentiment_analysis.sources)) {
+                    document.getElementById('source_twitter').checked = config.sentiment_analysis.sources.includes('twitter');
+                    document.getElementById('source_reddit').checked = config.sentiment_analysis.sources.includes('reddit');
+                    document.getElementById('source_news').checked = config.sentiment_analysis.sources.includes('news');
+                }
+            }
+            
+            // Execution
+            if (config.execution) {
+                document.getElementById('order_type').value = config.execution.order_type || 'limit';
+                document.getElementById('limit_order_distance').value = config.execution.limit_order_distance || 0.001;
+                document.getElementById('retry_attempts').value = config.execution.retry_attempts || 3;
+                document.getElementById('retry_delay').value = config.execution.retry_delay || 1;
+                document.getElementById('execution_cooldown').value = config.execution.execution_cooldown || 60;
+            }
+            
+            // Logging
+            if (config.logging) {
+                document.getElementById('logging_level').value = config.logging.level || 'INFO';
+                document.getElementById('save_predictions').checked = config.logging.save_predictions || false;
+                document.getElementById('detailed_trade_logs').checked = config.logging.detailed_trade_logs || false;
+            }
+        }
+        
+        // Add symbol input
+        function addSymbolInput(value = '') {
+            const symbolsContainer = document.getElementById('symbols-container');
+            const index = symbolsContainer.children.length;
+            
+            const inputGroup = document.createElement('div');
+            inputGroup.className = 'input-group mb-2';
+            
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'form-control symbol-input';
+            input.name = `symbol_${index}`;
+            input.placeholder = 'e.g., BTC/USDT';
+            input.value = value;
+            
+            const removeButton = document.createElement('button');
+            removeButton.type = 'button';
+            removeButton.className = 'btn btn-outline-danger';
+            removeButton.innerHTML = '<i class="bi bi-x"></i>';
+            removeButton.onclick = function() {
+                symbolsContainer.removeChild(inputGroup);
+            };
+            
+            inputGroup.appendChild(input);
+            inputGroup.appendChild(removeButton);
+            symbolsContainer.appendChild(inputGroup);
+        }
+        
+        // Add symbol button
+        function addSymbol() {
+            addSymbolInput();
+        }
+        
+        // Update model weights sum
+        function updateModelWeightsSum() {
+            const weights = [
+                parseFloat(document.getElementById('xgboost_weight').value) || 0,
+                parseFloat(document.getElementById('lstm_weight').value) || 0,
+                parseFloat(document.getElementById('catboost_weight').value) || 0,
+                parseFloat(document.getElementById('transformer_weight').value) || 0
+            ];
+            
+            const sum = weights.reduce((a, b) => a + b, 0);
+            
+            // Update progress bar
+            const progressBar = document.getElementById('weights-progress');
+            const sumDisplay = document.getElementById('weights-sum');
+            
+            progressBar.style.width = `${sum * 100}%`;
+            progressBar.className = `progress-bar ${sum === 1 ? 'bg-success' : sum < 1 ? 'bg-warning' : 'bg-danger'}`;
+            
+            sumDisplay.textContent = `Total: ${sum.toFixed(2)}`;
+            sumDisplay.className = `text-end ${sum === 1 ? 'text-success' : 'text-danger'}`;
+        }
+        
+        // Save configuration
+        function saveConfig() {
+            // Build config object
+            
+            // General settings
+            config.api_key = document.getElementById('api_key').value;
+            config.api_secret = document.getElementById('api_secret').value;
+            config.base_url = document.getElementById('base_url').value;
+            config.testnet = document.getElementById('testnet').checked;
+            
+            // Symbols
+            config.symbols = [];
+            document.querySelectorAll('.symbol-input').forEach(input => {
+                if (input.value.trim()) {
+                    config.symbols.push(input.value.trim());
+                }
+            });
+            
+            // Timeframes
+            config.timeframes = {
+                primary: document.getElementById('primary_timeframe').value,
+                secondary: []
+            };
+            
+            document.querySelectorAll('[name="secondary_timeframes"]:checked').forEach(checkbox => {
+                config.timeframes.secondary.push(checkbox.value);
+            });
+            
+            // Trading settings
+            config.trade_settings = {
+                max_positions: parseInt(document.getElementById('max_positions').value),
+                account_risk_per_trade: parseFloat(document.getElementById('account_risk_per_trade').value),
+                default_stop_loss_pct: parseFloat(document.getElementById('default_stop_loss_pct').value),
+                default_take_profit_pct: parseFloat(document.getElementById('default_take_profit_pct').value),
+                trailing_stop: document.getElementById('trailing_stop').checked,
+                trailing_stop_activation: parseFloat(document.getElementById('trailing_stop_activation').value),
+                trailing_stop_distance: parseFloat(document.getElementById('trailing_stop_distance').value)
+            };
+            
+            // ML settings
+            config.ml_settings = {
+                feature_window: parseInt(document.getElementById('feature_window').value),
+                prediction_window: parseInt(document.getElementById('prediction_window').value),
+                train_interval_days: parseInt(document.getElementById('train_interval_days').value),
+                confidence_threshold: parseFloat(document.getElementById('confidence_threshold').value),
+                ensemble_method: "weighted",
+                model_weights: {
+                    xgboost: parseFloat(document.getElementById('xgboost_weight').value),
+                    lstm: parseFloat(document.getElementById('lstm_weight').value),
+                    catboost: parseFloat(document.getElementById('catboost_weight').value),
+                    transformer: parseFloat(document.getElementById('transformer_weight').value)
+                }
+            };
+            
+            // Risk management
+            config.risk_management = {
+                max_daily_loss: parseFloat(document.getElementById('max_daily_loss').value),
+                max_drawdown: parseFloat(document.getElementById('max_drawdown').value),
+                position_correlation_limit: parseFloat(document.getElementById('position_correlation_limit').value)
+            };
+            
+            // Sentiment analysis
+            config.sentiment_analysis = {
+                enabled: document.getElementById('sentiment_enabled').checked,
+                impact_weight: parseFloat(document.getElementById('sentiment_impact_weight').value),
+                refresh_interval_minutes: parseInt(document.getElementById('sentiment_refresh_interval').value),
+                sources: []
+            };
+            
+            document.querySelectorAll('[name="sentiment_sources"]:checked').forEach(checkbox => {
+                config.sentiment_analysis.sources.push(checkbox.value);
+            });
+            
+            // Execution
+            config.execution = {
+                order_type: document.getElementById('order_type').value,
+                limit_order_distance: parseFloat(document.getElementById('limit_order_distance').value),
+                retry_attempts: parseInt(document.getElementById('retry_attempts').value),
+                retry_delay: parseInt(document.getElementById('retry_delay').value),
+                execution_cooldown: parseInt(document.getElementById('execution_cooldown').value)
+            };
+            
+            // Logging
+            config.logging = {
+                level: document.getElementById('logging_level').value,
+                save_predictions: document.getElementById('save_predictions').checked,
+                detailed_trade_logs: document.getElementById('detailed_trade_logs').checked
+            };
+            
+            // Validate config
+            if (!validateConfig()) {
+                return;
+            }
+            
+            // Send to server
+            fetch('/api/config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(config),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Configuration saved successfully');
+                } else {
+                    alert('Error saving configuration: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error saving config:', error);
+                alert('Error saving configuration');
+            });
+        }
+        
+        // Validate configuration
+        function validateConfig() {
+            // Check required fields
+            if (!config.symbols || config.symbols.length === 0) {
+                alert('At least one symbol is required');
+                return false;
+            }
+            
+            // Check model weights sum
+            const weightsSum = Object.values(config.ml_settings.model_weights).reduce((a, b) => a + b, 0);
+            if (Math.abs(weightsSum - 1) > 0.01) {
+                alert(`Model weights should sum to 1.0 (current: ${weightsSum.toFixed(2)})`);
+                return false;
+            }
+            
+            // Check risk values
+            if (config.trade_settings.account_risk_per_trade <= 0 || config.trade_settings.account_risk_per_trade > 0.1) {
+                alert('Account risk per trade should be between 0 and 0.1 (0-10%)');
+                return false;
+            }
+            
+            return true;
+        }
+        
+        // Reset to defaults
+        function resetConfig() {
+            if (confirm('Are you sure you want to reset all settings to defaults?')) {
+                // Load default config
+                fetch('/api/default_config')
+                    .then(response => response.json())
+                    .then(data => {
+                        config = data;
+                        populateConfigForm(config);
+                    })
+                    .catch(error => {
+                        console.error('Error loading default config:', error);
+                        alert('Error loading default configuration');
+                    });
+            }
+        }
+    </script>
+</body>
+</html>

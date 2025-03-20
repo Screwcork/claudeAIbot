@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Bot - Positions Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <nav id="sidebar" class="col-md-3 col-lg-2 d-md-block bg-dark sidebar collapse">
+                <div class="position-sticky pt-3">
+                    <div class="sidebar-header mb-4">
+                        <h3 class="text-light">Trading Bot</h3>
+                        <div id="bot-status-indicator" class="status-indicator {{ 'status-' + bot_status.status }}">
+                            {{ bot_status.status }}
+                        </div>
+                    </div>
+                    
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('dashboard') }}">
+                                <i class="bi bi-speedometer2 me-2"></i>
+                                Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link active" href="{{ url_for('positions') }}">
+                                <i class="bi bi-graph-up me-2"></i>
+                                Positions
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('performance') }}">
+                                <i class="bi bi-bar-chart me-2"></i>
+                                Performance
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('markets') }}">
+                                <i class="bi bi-globe me-2"></i>
+                                Market Analysis
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('config') }}">
+                                <i class="bi bi-gear me-2"></i>
+                                Configuration
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('logs') }}">
+                                <i class="bi bi-journal-text me-2"></i>
+                                Logs
+                            </a>
+                        </li>
+                    </ul>
+                    
+                    <hr class="text-light">
+                    
+                    <div class="bot-controls">
+                        <h6 class="text-light px-3">Bot Controls</h6>
+                        <div class="d-flex justify-content-around">
+                            <button id="start-bot" class="btn btn-success btn-sm" onclick="sendCommand('start')">
+                                <i class="bi bi-play-fill"></i> Start
+                            </button>
+                            <button id="pause-bot" class="btn btn-warning btn-sm" onclick="sendCommand('pause')">
+                                <i class="bi bi-pause-fill"></i> Pause
+                            </button>
+                            <button id="stop-bot" class="btn btn-danger btn-sm" onclick="sendCommand('stop')">
+                                <i class="bi bi-stop-fill"></i> Stop
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+            
+            <!-- Main content -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2">Positions Management</h1>
+                    <div class="btn-toolbar mb-2 mb-md-0">
+                        <div class="btn-group me-2">
+                            <span class="connect-status">
+                                <span class="badge rounded-pill bg-{{ 'success' if bot_status.status != 'disconnected' else 'danger' }}">
+                                    <i class="bi bi-{{ 'check-circle' if bot_status.status != 'disconnected' else 'x-circle' }}"></i>
+                                    {{ 'Connected' if bot_status.status != 'disconnected' else 'Disconnected' }}
+                                </span>
+                            </span>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="refreshData()">
+                            <i class="bi bi-arrow-repeat"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- New Position Form -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title">Create New Position</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="new-position-form" class="row g-3">
+                                    <div class="col-md-3">
+                                        <label for="symbol" class="form-label">Symbol</label>
+                                        <select class="form-select" id="symbol" required>
+                                            <option value="">Select Symbol</option>
+                                            <option value="BTC/USDT">BTC/USDT</option>
+                                            <option value="ETH/USDT">ETH/USDT</option>
+                                            <option value="BNB/USDT">BNB/USDT</option>
+                                            <option value="XRP/USDT">XRP/USDT</option>
+                                            <option value="SOL/USDT">SOL/USDT</option>
+                                            <option value="DOGE/USDT">DOGE/USDT</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="side" class="form-label">Side</label>
+                                        <select class="form-select" id="side" required>
+                                            <option value="">Select Side</option>
+                                            <option value="buy">Buy (Long)</option>
+                                            <option value="sell">Sell (Short)</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="amount" class="form-label">Amount</label>
+                                        <input type="number" class="form-control" id="amount" step="0.001" min="0.001" required>
+                                    </div>
+                                    <div class="col-md-3 d-flex align-items-end">
+                                        <button type="button" class="btn btn-primary w-100" onclick="createPosition()">
+                                            <i class="bi bi-plus-circle"></i> Create Position
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Open Positions -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="card-title">Active Positions</h5>
+                                <div>
+                                    <span id="positions-count" class="badge bg-primary me-2">{{ positions|length }}</span>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="toggleCharts()">
+                                        <i class="bi bi-graph-up"></i> Toggle Charts
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Symbol</th>
+                                                <th>Side</th>
+                                                <th>Entry Price</th>
+                                                <th>Current Price</th>
+                                                <th>Size</th>
+                                                <th>Value</th>
+                                                <th>PnL</th>
+                                                <th>PnL %</th>
+                                                <th>Stop-Loss</th>
+                                                <th>Take-Profit</th>
+                                                <th>Duration</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="positions-table">
+                                            {% for position in positions %}
+                                            <tr>
+                                                <td>{{ position.symbol }}</td>
+                                                <td>
+                                                    <span class="badge bg-{{ 'success' if position.side == 'buy' else 'danger' }}">
+                                                        {{ position.side|upper }}
+                                                    </span>
+                                                </td>
+                                                <td>${{ position.entry_price|round(2) }}</td>
+                                                <td>
+                                                    <span id="current-price-{{ position.id }}">--</span>
+                                                </td>
+                                                <td>{{ position.amount }}</td>
+                                                <td>${{ position.value|round(2) }}</td>
+                                                <td class="{{ 'text-success' if position.unrealized_pnl > 0 else 'text-danger' }}">
+                                                    ${{ position.unrealized_pnl|round(2) }}
+                                                </td>
+                                                <td class="{{ 'text-success' if position.pnl_percentage > 0 else 'text-danger' }}">
+                                                    {{ position.pnl_percentage|round(2) }}%
+                                                </td>
+                                                <td>
+                                                    <div class="input-group input-group-sm">
+                                                        <input type="number" class="form-control form-control-sm" id="sl-{{ position.id }}" value="{{ position.stop_loss|round(2) }}">
+                                                        <button class="btn btn-outline-secondary btn-sm" type="button" onclick="updateStopLoss('{{ position.id }}')">
+                                                            <i class="bi bi-check"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="input-group input-group-sm">
+                                                        <input type="number" class="form-control form-control-sm" id="tp-{{ position.id }}" value="{{ position.take_profit|round(2) }}">
+                                                        <button class="btn btn-outline-secondary btn-sm" type="button" onclick="updateTakeProfit('{{ position.id }}')">
+                                                            <i class="bi bi-check"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                                <td>{{ position.duration }}</td>
+                                                <td>
+                                                    <div class="btn-group btn-group-sm">
+                                                        <button class="btn btn-danger" onclick="closePosition('{{ position.id }}')">
+                                                            Close
+                                                        </button>
+                                                        <button class="btn btn-outline-primary" onclick="showChart('{{ position.symbol }}')">
+                                                            <i class="bi bi-graph-up"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr id="chart-row-{{ position.id }}" class="chart-row" style="display:none;">
+                                                <td colspan="12">
+                                                    <div id="chart-{{ position.id }}" class="position-chart" style="height:300px;"></div>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                            {% if not positions %}
+                                            <tr>
+                                                <td colspan="12" class="text-center">No open positions</td>
+                                            </tr>
+                                            {% endif %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Price Chart Modal -->
+                <div class="modal fade" id="chartModal" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="chartModalLabel">Price Chart</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="d-flex mb-3">
+                                    <div class="btn-group btn-group-sm me-3">
+                                        <button class="btn btn-outline-secondary timeframe-btn" data-tf="15m">15m</button>
+                                        <button class="btn btn-outline-secondary timeframe-btn" data-tf="1h">1h</button>
+                                        <button class="btn btn-outline-secondary timeframe-btn" data-tf="4h">4h</button>
+                                        <button class="btn btn-outline-secondary timeframe-btn" data-tf="1d">1d</button>
+                                    </div>
+                                </div>
+                                <div id="modal-chart-container" style="height:400px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.5.1/dist/socket.io.min.js"></script>
+    <script>
+        // Global chart state
+        let currentSymbol = '';
+        let currentTimeframe = '15m';
+        let chartVisible = false;
+        let chartModal;
+        
+        // Initialize Bootstrap modal
+        document.addEventListener('DOMContentLoaded', function() {
+            chartModal = new bootstrap.Modal(document.getElementById('chartModal'));
+            
+            // Set active timeframe button
+            document.querySelectorAll('.timeframe-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.timeframe-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    currentTimeframe = this.getAttribute('data-tf');
+                    
+                    if (currentSymbol) {
+                        loadChart(currentSymbol, currentTimeframe);
+                    }
+                });
+            });
+        });
+        
+        // Connect to Socket.IO server
+        const socket = io();
+        
+        // Listen for status updates
+        socket.on('status_update', function(data) {
+            const statusIndicator = document.getElementById('bot-status-indicator');
+            statusIndicator.className = 'status-indicator status-' + data.status;
+            statusIndicator.textContent = data.status;
+            
+            // Update status badge
+            const statusBadge = document.querySelector('.connect-status .badge');
+            if (data.status !== 'disconnected') {
+                statusBadge.className = 'badge rounded-pill bg-success';
+                statusBadge.innerHTML = '<i class="bi bi-check-circle"></i> Connected';
+            } else {
+                statusBadge.className = 'badge rounded-pill bg-danger';
+                statusBadge.innerHTML = '<i class="bi bi-x-circle"></i> Disconnected';
+            }
+        });
+        
+        // Listen for positions updates
+        socket.on('positions_update', function(positions) {
+            const tbody = document.getElementById('positions-table');
+            if (!positions || positions.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="12" class="text-center">No open positions</td></tr>';
+                document.getElementById('positions-count').textContent = '0';
+                return;
+            }
+            
+            document.getElementById('positions-count').textContent = positions.length;
+            
+            // Clear existing rows except chart rows
+            const rows = tbody.querySelectorAll('tr:not(.chart-row)');
+            rows.forEach(row => row.remove());
+            
+            // Add updated position rows
+            positions.forEach(position => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${position.symbol}</td>
+                    <td>
+                        <span class="badge bg-${position.side === 'buy' ? 'success' : 'danger'}">
+                            ${position.side.toUpperCase()}
+                        </span>
+                    </td>
+                    <td>$${position.entry_price.toFixed(2)}</td>
+                    <td>
+                        <span id="current-price-${position.id}">--</span>
+                    </td>
+                    <td>${position.amount}</td>
+                    <td>$${position.value.toFixed(2)}</td>
+                    <td class="${position.unrealized_pnl > 0 ? 'text-success' : 'text-danger'}">
+                        $${position.unrealized_pnl.toFixed(2)}
+                    </td>
+                    <td class="${position.pnl_percentage > 0 ? 'text-success' : 'text-danger'}">
+                        ${position.pnl_percentage.toFixed(2)}%
+                    </td>
+                    <td>
+                        <div class="input-group input-group-sm">
+                            <input type="number" class="form-control form-control-sm" id="sl-${position.id}" value="${position.stop_loss ? position.stop_loss.toFixed(2) : '0.00'}">
+                            <button class="btn btn-outline-secondary btn-sm" type="button" onclick="updateStopLoss('${position.id}')">
+                                <i class="bi bi-check"></i>
+                            </button>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="input-group input-group-sm">
+                            <input type="number" class="form-control form-control-sm" id="tp-${position.id}" value="${position.take_profit ? position.take_profit.toFixed(2) : '0.00'}">
+                            <button class="btn btn-outline-secondary btn-sm" type="button" onclick="updateTakeProfit('${position.id}')">
+                                <i class="bi bi-check"></i>
+                            </button>
+                        </div>
+                    </td>
+                    <td>${position.duration}</td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-danger" onclick="closePosition('${position.id}')">
+                                Close
+                            </button>
+                            <button class="btn btn-outline-primary" onclick="showChart('${position.symbol}')">
+                                <i class="bi bi-graph-up"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+                
+                // Create chart row if it doesn't exist
+                if (!document.getElementById(`chart-row-${position.id}`)) {
+                    const chartRow = document.createElement('tr');
+                    chartRow.id = `chart-row-${position.id}`;
+                    chartRow.className = 'chart-row';
+                    chartRow.style.display = 'none';
+                    chartRow.innerHTML = `
+                        <td colspan="12">
+                            <div id="chart-${position.id}" class="position-chart" style="height:300px;"></div>
+                        </td>
+                    `;
+                    tbody.appendChild(chartRow);
+                }
+                
+                // Update current price
+                fetchCurrentPrice(position.symbol).then(price => {
+                    document.getElementById(`current-price-${position.id}`).textContent = '$' + price.toFixed(2);
+                });
+            });
+        });
+        
+        // Send command function
+        function sendCommand(command, params = {}) {
+            socket.emit('command', {
+                command: command,
+                params: params
+            });
+        }
+        
+        // Close position function
+        function closePosition(positionId) {
+            if (confirm('Are you sure you want to close this position?')) {
+                fetch(`/api/position/close/${positionId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('Position closed successfully');
+                            refreshData();
+                        } else {
+                            alert('Error closing position: ' + data.error);
+                        }
+                    });
+            }
+        }
+        
+        // Update stop loss function
+        function updateStopLoss(positionId) {
+            const stopLoss = parseFloat(document.getElementById(`sl-${positionId}`).value);
+            
+            fetch('/api/position/update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    position_id: positionId,
+                    stop_loss: stopLoss
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Stop loss updated successfully');
+                } else {
+                    alert('Error updating stop loss: ' + data.error);
+                }
+            });
+        }
+        
+        // Update take profit function
+        function updateTakeProfit(positionId) {
+            const takeProfit = parseFloat(document.getElementById(`tp-${positionId}`).value);
+            
+            fetch('/api/position/update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    position_id: positionId,
+                    take_profit: takeProfit
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Take profit updated successfully');
+                } else {
+                    alert('Error updating take profit: ' + data.error);
+                }
+            });
+        }
+        
+        // Create new position function
+        function createPosition() {
+            const symbol = document.getElementById('symbol').value;
+            const side = document.getElementById('side').value;
+            const amount = parseFloat(document.getElementById('amount').value);
+            
+            if (!symbol || !side || isNaN(amount) || amount <= 0) {
+                alert('Please fill in all fields correctly');
+                return;
+            }
+            
+            fetch('/api/position/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    symbol: symbol,
+                    side: side,
+                    amount: amount
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Position created successfully');
+                    document.getElementById('new-position-form').reset();
+                    refreshData();
+                } else {
+                    alert('Error creating position: ' + data.error);
+                }
+            });
+        }
+        
+        // Toggle chart rows
+        function toggleCharts() {
+            chartVisible = !chartVisible;
+            document.querySelectorAll('.chart-row').forEach(row => {
+                row.style.display = chartVisible ? 'table-row' : 'none';
+                
+                if (chartVisible) {
+                    const positionId = row.id.replace('chart-row-', '');
+                    const chartContainer = document.getElementById(`chart-${positionId}`);
+                    
+                    // Get the symbol from the previous row
+                    const prevRow = row.previousElementSibling;
+                    const symbol = prevRow.cells[0].textContent;
+                    
+                    // Load the chart
+                    fetch(`/api/chart/price/${symbol}/15m`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.data) {
+                                createPriceChart(chartContainer, data);
+                            }
+                        });
+                }
+            });
+        }
+        
+        // Show detailed chart modal
+        function showChart(symbol) {
+            currentSymbol = symbol;
+            currentTimeframe = '15m';
+            
+            // Set active timeframe button
+            document.querySelectorAll('.timeframe-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.getAttribute('data-tf') === currentTimeframe) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            // Set modal title
+            document.getElementById('chartModalLabel').textContent = `${symbol} Price Chart`;
+            
+            // Load chart
+            loadChart(symbol, currentTimeframe);
+            
+            // Show modal
+            chartModal.show();
+        }
+        
+        // Load chart data
+        function loadChart(symbol, timeframe) {
+            fetch(`/api/chart/price/${symbol}/${timeframe}`)
+                .then(response => response.json())
+                .then(data => {
+                    const container = document.getElementById('modal-chart-container');
+                    createPriceChart(container, data);
+                });
+        }
+        
+        // Create price chart
+        function createPriceChart(container, data) {
+            // Filter out items without all required data
+            const filteredData = data.data.filter(item => 
+                item.timestamp && item.open && item.high && item.low && item.close
+            );
+            
+            // Create traces
+            const trace = {
+                x: filteredData.map(item => item.timestamp),
+                open: filteredData.map(item => item.open),
+                high: filteredData.map(item => item.high),
+                low: filteredData.map(item => item.low),
+                close: filteredData.map(item => item.close),
+                type: 'candlestick',
+                name: data.symbol
+            };
+            
+            // Create layout
+            const layout = {
+                title: `${data.symbol} - ${data.timeframe} Chart`,
+                xaxis: {
+                    title: 'Time',
+                    rangeslider: {
+                        visible: false
+                    }
+                },
+                yaxis: {
+                    title: 'Price'
+                },
+                autosize: true,
+                margin: {
+                    l: 50,
+                    r: 50,
+                    b: 40,
+                    t: 40,
+                    pad: 4
+                }
+            };
+            
+            // Create chart
+            Plotly.newPlot(container, [trace], layout);
+        }
+        
+        // Fetch current price
+        async function fetchCurrentPrice(symbol) {
+            try {
+                const response = await fetch(`/api/ticker?symbol=${symbol}`);
+                const data = await response.json();
+                return data.last_price || 0;
+            } catch (error) {
+                console.error('Error fetching price:', error);
+                return 0;
+            }
+        }
+        
+        // Refresh data function
+        function refreshData() {
+            fetch('/api/positions')
+                .then(response => response.json())
+                .then(data => {
+                    socket.emit('positions_update', data);
+                });
+        }
+    </script>
+</body>
+</html>
